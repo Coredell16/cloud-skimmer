@@ -6,11 +6,11 @@
   <meta name="theme-color" content="#0e1b25">
   <title>贴云飞行 · 云际街机</title>
   <link rel="icon" href="wing.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="cabinet.css">
-  <script defer src="scenery.js"></script>
+  <link rel="stylesheet" href="cabinet.css?v=1.1.0">
+  <script defer src="scenery.js?v=1.1.0"></script>
   <script defer src="sprites.js"></script>
-  <script defer src="flight.js"></script>
-  <script defer src="cabinet.js"></script>
+  <script defer src="flight.js?v=1.1.0"></script>
+  <script defer src="cabinet.js?v=1.1.0"></script>
 </head>
 <body>
   <header class="mast"><div class="mast-inner">
@@ -23,7 +23,13 @@
   <main>
     <section class="cabinet" aria-label="贴云飞行游戏机">
       <div class="stage-bar">
-        <div class="stage-id"><span class="stripes" aria-hidden="true"></span><span class="pixel stage-label">STAGE 01</span><span class="bar-line"></span><strong>珊瑚海岸</strong></div>
+        <div id="routes" class="routes" role="group" aria-label="选择航线">
+          <span class="route-label" aria-hidden="true">选择航线</span>
+          <button class="route" data-stage="1" data-brief="掠过群岛，穿越弹幕。" aria-pressed="true"><span class="pixel">01</span><strong>珊瑚海岸</strong></button>
+          <button class="route" data-stage="2" data-brief="虚线交会时，避开双机俯冲。" aria-pressed="false"><span class="pixel">02</span><strong>日落峡湾</strong></button>
+          <button class="route" data-stage="3" data-brief="跟着青色缺口，穿过四排弹幕。" aria-pressed="false"><span class="pixel">03</span><strong>极光前哨</strong></button>
+        </div>
+        <div class="stage-id" id="activeRoute" hidden><span class="stripes" aria-hidden="true"></span><span class="pixel stage-label" id="stageNumber">STAGE 01</span><span class="bar-line"></span><strong id="stageName">珊瑚海岸</strong></div>
         <div class="timer"><i data-icon="clock"></i><span class="pixel" id="remaining">01:00</span><button id="pause" hidden aria-label="暂停飞行"><i data-icon="pause"></i></button><button id="leaveFull" hidden aria-label="退出全屏"><i data-icon="full"></i></button></div>
       </div>
       <div class="stage" id="stage" data-mode="menu">
@@ -33,11 +39,11 @@
         <div class="hero" id="hero">
           <h1><img src="title.png" alt="贴云飞行" width="155" height="41"></h1>
           <div class="game-name pixel"><span aria-hidden="true"></span>CLOUD SKIMMER</div>
-          <p>掠过群岛，穿越弹幕。<br>在这片海岸上空坚持 60 秒。</p>
+          <p><span id="brief">掠过群岛，穿越弹幕。</span><br>在这条航线上坚持 60 秒。</p>
           <div class="launch-row"><button class="launch" id="launch"><i data-icon="play"></i>开始飞行</button><kbd class="enter">ENTER</kbd></div>
         </div>
         <div class="result" id="result" hidden>
-          <div class="result-card"><span class="result-mark" aria-hidden="true"><i data-icon="wing"></i></span><h2 id="resultTitle" aria-live="polite"></h2><p id="resultDetail"></p>
+          <div class="result-card"><span class="result-mark" aria-hidden="true"><i data-icon="wing"></i></span><h2 id="resultTitle" aria-live="polite"></h2><p id="resultDetail"></p><p id="nextBrief" class="next-brief" hidden></p>
             <button class="launch" id="primary"><i data-icon="play"></i><span></span></button>
             <button class="text-button" id="back">返回标题画面</button>
           </div>
@@ -45,7 +51,7 @@
       </div>
       <div class="meters" aria-label="飞行仪表">
         <div class="meter"><div class="meter-label"><i data-icon="cross"></i>当前得分</div><output class="pixel score" id="score">000000</output></div>
-        <div class="meter"><div class="meter-label"><i data-icon="cup"></i>最高纪录</div><output class="pixel" id="best">000000</output></div>
+        <div class="meter"><div class="meter-label"><i data-icon="cup"></i>本关纪录</div><output class="pixel" id="best">000000</output></div>
         <div class="meter"><div class="meter-label"><i data-icon="shield"></i>剩余机体</div><div class="hearts" id="lives" aria-label="剩余 3 架"></div></div>
         <div class="meter"><div class="meter-label"><i data-icon="bolt"></i>擦弹能量</div><div class="energy"><span class="cells" id="cells" aria-hidden="true"></span><output class="pixel" id="charge">0%</output></div></div>
       </div>
@@ -58,9 +64,9 @@
         <div class="guide"><div class="guide-icon gold"><i data-icon="bolt"></i></div><div><h3>擦弹充能</h3><p>贴近子弹蓄能，满格后击落敌机触发闪电</p></div></div>
       </div>
       <details class="release-notes" id="releaseNotes">
-        <summary>版本更新 <span>v1.0.0</span></summary>
-        <p><time datetime="2026-11-25">2026 年 11 月 25 日</time> · 珊瑚海岸</p>
-        <p>首个正式版本收录 60 秒海岛航线。急转时机翼侧倾，云层随镜头移动。擦弹五次充满能量，再击落一架敌机即可触发连锁闪电。</p>
+        <summary>版本更新 <span>v1.1.0</span></summary>
+        <p><time datetime="2026-11-25">2026 年 11 月 25 日</time> · 两条新航线</p>
+        <p>「日落峡湾」加入交叉编队，「极光前哨」加入带缺口的弹幕。起飞前可以任选一关，通关后可以进入下一关。三条航线分别记录最高分。</p>
         <a href="https://github.com/Coredell16/cloud-skimmer/blob/main/CHANGELOG.md" target="_blank" rel="noopener">在 GitHub 查看完整更新记录</a>
       </details>
     </section>

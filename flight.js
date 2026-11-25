@@ -19,12 +19,15 @@
     }
   };
 
-  let best = Number(storage.read('best', 0)) || 0;
+  const bestKeys = ['best', 'best.2', 'best.3'];
+  const bestScores = bestKeys.map(key => Number(storage.read(key, 0)) || 0);
+  let stage = 1;
   let muted = storage.read('mute', 'false') === 'true';
   let mode = 'menu';
   let width = 1, height = 1, ratio = 1, playerSize = 40;
   let score = 0, lives = 3, charge = 0, elapsed = 0;
   let nextEnemy = 0, nextShot = 0, nextWave = 0;
+  let patternCycle = -1, patternPhase = -1, patternStep = 0;
   let sceneClock = 0, lastFrame = 0, shake = 0, audioContext;
   let camX = 0, camY = 0, pointer = null, previousState = '';
   let enemies = [], shots = [], hazards = [], particles = [], labels = [], arcs = [], exhaust = [];
@@ -32,7 +35,7 @@
   const keys = new Set();
 
   function state() {
-    return { mode, score, lives, charge, best, remaining: Math.max(0, 60 - Math.floor(elapsed)), muted };
+    return { mode, stage, score, lives, charge, best: bestScores[stage - 1], remaining: Math.max(0, 60 - Math.floor(elapsed)), muted };
   }
   function notify() {
     const detail = state(), signature = JSON.stringify(detail);
@@ -62,7 +65,12 @@
         point.x *= sx;
         point.y *= sy;
       }
-      for (const enemy of enemies) enemy.baseX *= sx;
+      for (const enemy of enemies) {
+        enemy.baseX *= sx;
+        enemy.speed *= sy;
+        enemy.drift *= sx;
+      }
+      for (const bullet of hazards) { bullet.vx *= sx; bullet.vy *= sy; }
       pointer = null;
     }
   }
@@ -106,6 +114,7 @@
     resize(); releaseInput(); enableSound();
     mode = 'play'; score = 0; lives = 3; charge = 0; elapsed = 0;
     camX = 0; camY = 0; shake = 0; nextShot = .12; nextEnemy = .15; nextWave = 0;
+    patternCycle = -1; patternPhase = -1; patternStep = 0;
     enemies = []; shots = []; hazards = []; particles = []; labels = []; arcs = []; exhaust = [];
     pilot = { x: width / 2, y: height * .79, bank: 0, vx: 0, vy: 0, shield: .85 };
     beep(340, 760, .23, .055, 'triangle');
@@ -121,13 +130,26 @@
   }
   function finish(nextMode) {
     mode = nextMode; releaseInput();
-    if (score > best) { best = score; storage.write('best', best); }
+    if (score > bestScores[stage - 1]) {
+      bestScores[stage - 1] = score;
+      storage.write(bestKeys[stage - 1], score);
+    }
     beep(nextMode === 'win' ? 420 : 170, nextMode === 'win' ? 970 : 55, .45, .07, 'triangle');
     notify();
   }
   function menu() {
     mode = 'menu'; releaseInput(); score = 0; lives = 3; charge = 0; elapsed = 0;
     camX = 0; camY = 0; shake = 0; notify();
+  }
+  function selectStage(number) {
+    if (mode !== 'menu' || !Number.isInteger(number) || number < 1 || number > bestScores.length) return;
+    stage = number;
+    notify();
+  }
+  function nextStage() {
+    if (mode !== 'win' || stage === bestScores.length) return;
+    stage++;
+    start();
   }
 
   const movementKeys = new Set(['KeyA','KeyD','KeyW','KeyS','ArrowLeft','ArrowRight','ArrowUp','ArrowDown']);
@@ -203,11 +225,59 @@
     });
     nextWave++;
   }
+  const warningSeconds = 1.15;
+  const rowInterval = .62;
+  const curtainRows = 4;
+  function crossingX(side, age) {
+    return width * ((side === 1 ? .12 : .88) + side * age * .165);
+  }
+  function spawnCrossingPair() {
+    for (const side of [-1, 1]) {
+      const x = crossingX(side, 0);
+      enemies.push({
+        x, y: -playerSize, baseX: x, size: playerSize, age: 0,
+        speed: height * .195, hp: 2, cross: side, drift: 0,
+        fire: 1.3, ace: false, flash: 0
+      });
+    }
+  }
+  function curtainGap(row) {
+    // Successive rows sweep to the right, then the next volley sweeps back left.
+    const fraction = patternCycle % 2 === 0 ? row / (curtainRows - 1) : 1 - row / (curtainRows - 1);
+    return width * (.3 + fraction * .4);
+  }
+  function gapRadius() {
+    return Math.max(playerSize * 1.1, width * .125);
+  }
+  function spawnCurtain(row) {
+    const center = curtainGap(row), opening = gapRadius();
+    const columns = Math.max(2, Math.ceil(width / (playerSize * .32 + 5)));
+    for (let col = 0; col <= columns; col++) {
+      const x = col * width / columns;
+      if (Math.abs(x - center) <= opening) continue;
+      hazards.push({ x, y: -8, vx: 0, vy: height * .32, grazed: false, curtain: true });
+    }
+  }
+  function updatePattern() {
+    if (stage === 1 || elapsed < 1.8) return;
+    const period = stage === 2 ? 6.2 : 8;
+    const time = elapsed - 1.8;
+    const cycle = Math.floor(time / period);
+    if (cycle !== patternCycle) { patternCycle = cycle; patternStep = 0; }
+    patternPhase = time - cycle * period;
+    if (stage === 2) {
+      if (patternStep === 0 && patternPhase >= warningSeconds) {
+        spawnCrossingPair(); patternStep++;
+      }
+    } else if (patternStep < curtainRows && patternPhase >= warningSeconds + patternStep * rowInterval) {
+      spawnCurtain(patternStep++);
+    }
+  }
   function enemyFire(enemy) {
     const dx = pilot.x - enemy.x, dy = pilot.y - enemy.y;
     const base = Math.atan2(dy, dx);
     const speed = clamp(height * .32, 130, 230) * (1 + elapsed / 190);
-    const spread = enemy.ace || elapsed > 38 ? [-.20,0,.20] : [0];
+    const spread = !enemy.cross && (enemy.ace || elapsed > 38) ? [-.20,0,.20] : [0];
     for (const angle of spread) {
       hazards.push({ x: enemy.x, y: enemy.y + enemy.size * .28,
         vx: Math.cos(base + angle) * speed, vy: Math.sin(base + angle) * speed, grazed: false });
@@ -271,13 +341,16 @@
     nextEnemy -= dt;
     if (nextEnemy <= 0) {
       spawnEnemy();
-      nextEnemy += Math.max(.68, 1.38 - elapsed * .011) * random(.85,1.14);
+      const spacing = stage === 1 ? 1 : stage === 2 ? 1.35 : 1.55;
+      nextEnemy += Math.max(.68, 1.38 - elapsed * .011) * random(.85,1.14) * spacing;
     }
+    updatePattern();
     for (const enemy of enemies) {
       if (enemy.dead) continue;
       enemy.age += dt; enemy.y += enemy.speed * dt;
-      enemy.x = clamp(enemy.baseX + Math.sin(enemy.age * enemy.period + enemy.phase) * enemy.drift,
-        enemy.size/2, width-enemy.size/2);
+      enemy.x = enemy.cross ? crossingX(enemy.cross, enemy.age) :
+        clamp(enemy.baseX + Math.sin(enemy.age * enemy.period + enemy.phase) * enemy.drift,
+          enemy.size/2, width-enemy.size/2);
       enemy.flash = Math.max(0, enemy.flash - dt); enemy.fire -= dt;
       if (enemy.fire <= 0 && enemy.y > 65 && enemy.y < pilot.y - playerSize) {
         enemyFire(enemy); enemy.fire = random(1.55,2.45) * (1 - elapsed / 250);
@@ -380,10 +453,44 @@
       ctx.restore();
     }
   }
+  function drawPatternWarning() {
+    if (stage === 1 || patternPhase < 0) return;
+    if (stage === 2 && patternStep !== 0 || stage === 3 && patternStep === curtainRows) return;
+    ctx.save();
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 2;
+    ctx.font = 'bold 12px system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    let caption, x;
+    if (stage === 2) {
+      ctx.strokeStyle = '#ffdd9b';
+      ctx.setLineDash([7, 8]);
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(crossingX(side, 0), -playerSize);
+        ctx.lineTo(crossingX(side, 2.8), height * .195 * 2.8 - playerSize);
+        ctx.stroke();
+      }
+      x = width / 2; caption = '交叉编队';
+    } else {
+      x = curtainGap(patternStep); caption = '弹幕缺口';
+      ctx.strokeStyle = '#9cfbdc';
+      for (const side of [-1, 1]) {
+        const edge = x + side * gapRadius();
+        ctx.beginPath(); ctx.moveTo(edge - side * 9, 11);
+        ctx.lineTo(edge, 11); ctx.lineTo(edge, 29); ctx.stroke();
+      }
+    }
+    ctx.fillStyle = '#132c3e'; ctx.fillRect(Math.round(x) - 33, 10, 66, 20);
+    ctx.fillStyle = stage === 2 ? '#ffdd9b' : '#9cfbdc';
+    ctx.fillText(caption, x, 24);
+    ctx.restore();
+  }
   function drawCombat() {
     ctx.save();
     const bump = reduceMotion.matches ? 0 : shake * 18;
     ctx.translate(-camX * .71 + Math.sin(sceneClock*93)*bump, -camY*.71 + Math.cos(sceneClock*79)*bump);
+    drawPatternWarning();
     for (const t of exhaust) {
       ctx.globalAlpha = .28*t.life/.5; ctx.fillStyle = '#ecffef';
       const span = Math.max(2, playerSize*(.025+(.5-t.life)*.12));
@@ -392,8 +499,14 @@
     }
     ctx.globalAlpha = 1;
     for (const enemy of enemies) {
-      sprite(enemy.ace?'enemy2':'enemy',enemy.x,enemy.y,enemy.size,
-        Math.cos(enemy.age * enemy.period + enemy.phase)*.38,sceneClock);
+      if (enemy.cross) {
+        ctx.save(); ctx.translate(enemy.x, enemy.y); ctx.rotate(-enemy.cross * .40);
+        sprite('enemy2', 0, 0, enemy.size, enemy.cross * .7, sceneClock);
+        ctx.restore();
+      } else {
+        sprite(enemy.ace?'enemy2':'enemy',enemy.x,enemy.y,enemy.size,
+          Math.cos(enemy.age * enemy.period + enemy.phase)*.38,sceneClock);
+      }
       if (enemy.flash > 0) { ctx.fillStyle='#fff3a8'; ctx.fillRect(enemy.x-3,enemy.y-3,6,6); }
     }
     for (const shot of shots) {
@@ -402,9 +515,9 @@
     }
     for (const bullet of hazards) {
       const r = clamp(playerSize*.096,3.3,5.2);
-      ctx.fillStyle='#8d3855'; ctx.fillRect(bullet.x-r-1,bullet.y-r+1,r*2+2,r*2-2);
+      ctx.fillStyle=bullet.curtain?'#522c68':'#8d3855'; ctx.fillRect(bullet.x-r-1,bullet.y-r+1,r*2+2,r*2-2);
       ctx.fillRect(bullet.x-r+1,bullet.y-r-1,r*2-2,r*2+2);
-      ctx.fillStyle='#ff8c67'; ctx.fillRect(bullet.x-r,bullet.y-r,r*2,r*2);
+      ctx.fillStyle=bullet.curtain?'#ec91e2':'#ff8c67'; ctx.fillRect(bullet.x-r,bullet.y-r,r*2,r*2);
       ctx.fillStyle='#fff2c0'; ctx.fillRect(bullet.x-r*.48,bullet.y-r*.48,r*.96,r*.96);
     }
     if (lives > 0) {
@@ -437,12 +550,12 @@
       if (mode === 'menu' || mode === 'play') sceneClock += dt;
       if (mode === 'play') update(dt);
       ctx.setTransform(ratio,0,0,ratio,0,0); ctx.imageSmoothingEnabled = false;
-      window.SkimmerScenery?.draw(ctx,width,height,sceneClock,camX,camY,mode === 'menu' ? 'menu' : 'play');
+      window.SkimmerScenery?.draw(ctx,width,height,sceneClock,camX,camY,mode === 'menu' ? 'menu' : 'play',stage);
       if (mode === 'menu') drawIntro(sceneClock); else drawCombat();
     }
     requestAnimationFrame(frame);
   }
-  window.Flight = { start,pause,resume,menu,toggleMute,state };
+  window.Flight = { start,pause,resume,menu,selectStage,nextStage,toggleMute,state };
   new ResizeObserver(resize).observe(canvas);
   resize(); notify(); requestAnimationFrame(frame);
 })();

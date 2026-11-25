@@ -70,5 +70,32 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 @media(max-height:490px) and (orientation:landscape){.mast-inner{height:38px}.brand img{height:25px}.brand strong{font-size:14px}.brand span{display:none}main{padding-top:5px}.stage{height:calc(100svh - 139px);min-height:160px}.stage-bar{height:28px}.meters{padding-block:7px}.meter-label{margin-bottom:3px}.meter>output{font-size:16px}.hero{top:50%;transform:translateY(-50%)}.hero h1 img{width:170px}.game-name{font-size:10px;margin-top:4px}.hero p{font-size:12px;margin:7px 0}.hero p br{display:none}.launch{min-height:33px;font-size:13px}.result-card{padding:8px 20px}.result-mark{display:none}.result h2{font-size:19px}.result p{margin:4px 0 8px}}
 html.theater .mast,html.theater .handbook{display:none}
 html.theater main{width:100%;padding:0}
+.routes{display:flex;align-items:center;gap:5px}
+.route-label{margin-right:7px;font-size:12px;color:var(--muted)}
+.route{--route-color:#8cdace;display:inline-flex;align-items:center;gap:9px;padding:0 12px;height:34px;border:1px solid transparent;border-radius:3px;background:transparent;color:#b7c6c8;white-space:nowrap}
+.route[data-stage="2"]{--route-color:#ffbb84}
+.route[data-stage="3"]{--route-color:#a3caff}
+.route .pixel{font-size:10px;color:var(--route-color)}
+.route strong{font-size:13px;font-weight:650}
+.route:hover{background:#243b46}
+.route[aria-pressed="true"]{background:#263e49;color:#fff7df;border-color:#49636b;box-shadow:inset 0 -2px var(--route-color)}
+.result .next-brief{margin:-8px 0 14px;color:var(--gold);font-size:13px}
+@media(max-width:700px){
+  .stage-bar:has(.routes:not([hidden])){height:47px;padding-inline:5px}
+  .route-label{display:none}
+  .routes{gap:2px}
+  .route{height:40px;gap:4px;padding-inline:5px}
+  .route strong{font-size:12px}
+  .route .pixel{font-size:9px}
+}
+@media(max-width:360px){
+  .stage-bar:has(.routes:not([hidden])) .timer>i{display:none}
+  .route{padding-inline:3px}
+}
+@media(max-height:490px) and (orientation:landscape){
+  .stage-bar:has(.routes:not([hidden])){height:32px}
+  .route{height:28px}
+  .result .next-brief{margin:1px 0 5px}
+}
 html.theater .stage{height:calc(100dvh - 140px);min-height:160px}
 @media(max-width:700px){html.theater .stage{height:calc(100dvh - 105px)}}

@@ -30,9 +30,28 @@
   }
   for (let i = 0; i < 10; i++) byId("cells").append(document.createElement("b"));
   const pad = (value, length) => String(Math.max(0, Math.ceil(value))).padStart(length, "0");
+  const routes = Array.from(byId("routes").querySelectorAll(".route"));
+  function routeName(route) {
+    return route.querySelector("strong").textContent;
+  }
+  let currentStage;
   let currentMode;
   function update(state) {
-    const {mode, lives, charge, remaining, score, best, muted} = state;
+    const {mode, stage, lives, charge, remaining, score, best, muted} = state;
+    if (stage !== currentStage) {
+      currentStage = stage;
+      const route = routes[stage - 1];
+      byId("stageNumber").textContent = "STAGE " + pad(stage, 2);
+      byId("stageName").textContent = routeName(route);
+      byId("brief").textContent = route.dataset.brief;
+      routes.forEach((button, index) => button.setAttribute("aria-pressed", String(index + 1 === stage)));
+      if (location.protocol === "https:" || location.protocol === "http:") {
+        const url = new URL(location.href);
+        if (stage === 1) url.searchParams.delete("stage");
+        else url.searchParams.set("stage", String(stage));
+        if (url.href !== location.href) history.replaceState(null, "", url);
+      }
+    }
     byId("score").textContent = pad(score, 6);
     byId("best").textContent = pad(best, 6);
     const seconds = Math.max(0, Math.ceil(remaining));
@@ -53,6 +72,8 @@
     currentMode = mode;
     byId("stage").dataset.mode = mode;
     byId("hero").hidden = mode !== "menu";
+    byId("routes").hidden = mode !== "menu";
+    byId("activeRoute").hidden = mode === "menu";
     byId("pause").hidden = mode !== "play";
     const panel = ["paused", "over", "win"].includes(mode);
     byId("result").hidden = !panel;
@@ -60,23 +81,42 @@
       byId("flightCanvas").focus({preventScroll:true});
     } else if (panel) {
       const paused = mode === "paused";
+      const next = mode === "win" && routes[stage];
       byId("resultTitle").textContent = paused ? "飞行暂停" : mode === "win" ? "顺利返航" : "飞行结束";
-      byId("resultDetail").textContent = paused ? "航线已保留，随时继续。" : "本次得分 " + pad(score, 6);
-      byId("primary").querySelector("span").textContent = paused ? "继续飞行" : "再飞一次";
+      byId("resultDetail").textContent = paused ? routeName(routes[stage - 1]) + " · 航线已保留" : routeName(routes[stage - 1]) + " · 得分 " + pad(score, 6);
+      byId("nextBrief").hidden = !next;
+      if (next) byId("nextBrief").textContent = next.dataset.brief;
+      byId("primary").querySelector("span").textContent = paused ? "继续飞行" : next ? "下一关 · " + routeName(next) : "重飞本关";
       byId("primary").focus({preventScroll:true});
     }
   }
   byId("launch").onclick = () => window.Flight.start();
+  routes.forEach(route => {
+    route.onclick = () => window.Flight.selectStage(Number(route.dataset.stage));
+  });
   byId("sound").onclick = () => window.Flight.toggleMute();
   byId("pause").onclick = () => window.Flight.pause();
+  // A quick tap after a drag can produce pointerup without a synthesized click.
+  byId("pause").addEventListener("pointerup", event => {
+    if (event.isPrimary && event.pointerType === "touch" &&
+        document.elementFromPoint(event.clientX, event.clientY)?.closest("#pause")) {
+      window.Flight.pause();
+    }
+  });
   byId("back").onclick = () => { window.Flight.menu(); byId("launch").focus({preventScroll:true}); };
-  byId("primary").onclick = () => currentMode === "paused" ? window.Flight.resume() : window.Flight.start();
+  byId("primary").onclick = () => {
+    if (currentMode === "paused") window.Flight.resume();
+    else if (currentMode === "win" && currentStage < routes.length) window.Flight.nextStage();
+    else window.Flight.start();
+  };
   byId("releaseNotes").addEventListener("toggle", event => {
     if (event.currentTarget.open && currentMode === "play") window.Flight.pause();
   });
   document.addEventListener("keydown", event => {
     if (event.key === "Escape" && document.documentElement.classList.contains("theater") && !document.fullscreenElement) setTheater(false);
-    if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.target.closest?.("button, a, summary")) return;
+    if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+    const onSelectedRoute = event.key === "Enter" && event.target.closest?.('.route[aria-pressed="true"]');
+    if (!onSelectedRoute && event.target.closest?.("button, a, summary")) return;
     if ((event.key === "Enter" || event.code === "Space") && currentMode === "menu") {
       event.preventDefault();
       window.Flight.start();
@@ -97,5 +137,7 @@
   };
   document.addEventListener("fullscreenchange", () => setTheater(Boolean(document.fullscreenElement)));
   window.addEventListener("flightstate", e => update(e.detail));
-  if (window.Flight) update(window.Flight.state());
+  const requestedStage = Number(new URLSearchParams(location.search).get("stage"));
+  if (routes.some(route => Number(route.dataset.stage) === requestedStage)) window.Flight.selectStage(requestedStage);
+  update(window.Flight.state());
 })();
