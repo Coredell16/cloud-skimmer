@@ -71,9 +71,12 @@
   byId("pause").onclick = () => window.Flight.pause();
   byId("back").onclick = () => { window.Flight.menu(); byId("launch").focus({preventScroll:true}); };
   byId("primary").onclick = () => currentMode === "paused" ? window.Flight.resume() : window.Flight.start();
+  byId("releaseNotes").addEventListener("toggle", event => {
+    if (event.currentTarget.open && currentMode === "play") window.Flight.pause();
+  });
   document.addEventListener("keydown", event => {
     if (event.key === "Escape" && document.documentElement.classList.contains("theater") && !document.fullscreenElement) setTheater(false);
-    if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.target.closest?.("button")) return;
+    if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.target.closest?.("button, a, summary")) return;
     if ((event.key === "Enter" || event.code === "Space") && currentMode === "menu") {
       event.preventDefault();
       window.Flight.start();
