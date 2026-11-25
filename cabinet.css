@@ -75,27 +75,74 @@ html.theater main{width:100%;padding:0}
 .route{--route-color:#8cdace;display:inline-flex;align-items:center;gap:9px;padding:0 12px;height:34px;border:1px solid transparent;border-radius:3px;background:transparent;color:#b7c6c8;white-space:nowrap}
 .route[data-stage="2"]{--route-color:#ffbb84}
 .route[data-stage="3"]{--route-color:#a3caff}
+.route[data-stage="4"]{--route-color:#f5d673}
+.route[data-stage="5"]{--route-color:#82dec5}
+.route[data-stage="6"]{--route-color:#ff9281}
 .route .pixel{font-size:10px;color:var(--route-color)}
 .route strong{font-size:13px;font-weight:650}
 .route:hover{background:#243b46}
 .route[aria-pressed="true"]{background:#263e49;color:#fff7df;border-color:#49636b;box-shadow:inset 0 -2px var(--route-color)}
 .result .next-brief{margin:-8px 0 14px;color:var(--gold);font-size:13px}
-@media(max-width:700px){
-  .stage-bar:has(.routes:not([hidden])){height:47px;padding-inline:5px}
+@media(max-width:960px){
   .route-label{display:none}
-  .routes{gap:2px}
-  .route{height:40px;gap:4px;padding-inline:5px}
+  .routes{gap:3px}
+  .route{gap:5px;padding-inline:7px}
+}
+@media(max-width:700px){
+  .stage-bar:has(.routes:not([hidden])){height:auto;padding:4px 3px}
+  .routes{flex:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px}
+  .route{height:36px;justify-content:center;gap:6px;padding:0 3px}
   .route strong{font-size:12px}
   .route .pixel{font-size:9px}
+  .stage-bar:has(.routes:not([hidden])) .timer>i,.stage-bar:has(.routes:not([hidden])) #remaining{display:none}
 }
 @media(max-width:360px){
-  .stage-bar:has(.routes:not([hidden])) .timer>i{display:none}
-  .route{padding-inline:3px}
+  .stage-id .stripes,.stage-id .bar-line,.timer>i{display:none}
+  .stage-id,.timer{gap:5px}
 }
 @media(max-height:490px) and (orientation:landscape){
-  .stage-bar:has(.routes:not([hidden])){height:32px}
+  .stage-bar:has(.routes:not([hidden])){height:auto}
   .route{height:28px}
   .result .next-brief{margin:1px 0 5px}
 }
 html.theater .stage{height:calc(100dvh - 140px);min-height:160px}
 @media(max-width:700px){html.theater .stage{height:calc(100dvh - 105px)}}
+.wallet,.sortie-cash{display:inline-flex;align-items:center;gap:5px;color:var(--gold);font:700 13px Consolas,monospace;letter-spacing:0}
+.sortie-cash{margin-right:4px}
+.wallet i,.sortie-cash i{width:15px;height:15px}
+.hangar-button{display:inline-flex;align-items:center;justify-content:center;gap:10px;pointer-events:auto;border:1px solid #829b99;border-radius:3px;background:#19333eea;color:#fbf1d7;min-height:43px;padding:0 13px;font-weight:750;font-size:14px;box-shadow:1px 2px #173642}
+.hangar-button:hover{background:#2b4d58}
+.result .hangar-button{margin:12px auto 0}
+#hangar{width:min(465px,calc(100% - 24px));max-height:calc(100dvh - 24px);overflow:auto;margin:auto;color:var(--cream);padding:0;background:#162b37;border:2px solid #5b757e;border-radius:6px;box-shadow:4px 6px #0b1d26}
+#hangar::backdrop{background:#071722ba}
+.hangar-head,.balance-row,.gear{display:flex;align-items:center}
+.hangar-head,.balance-row{justify-content:space-between}
+.hangar-head{background:#203843;padding:10px 18px;border-bottom:1px solid #425963}
+.hangar-head h2{margin:0;font-size:20px;letter-spacing:2px}
+#closeHangar{width:34px;height:34px;font-size:23px;line-height:1;color:#dce5df;background:#263f49;border:1px solid #4a626a;border-radius:3px}
+.hangar-body{padding:8px 18px 16px}
+.balance-row{padding:10px 0 14px;font-size:13px;color:#bbcfce}
+.balance-row .wallet{font-size:22px}
+.balance-row .wallet i{height:20px;width:20px}
+.gear{gap:12px;border-top:1px solid #354f59;padding:16px 0;min-height:85px}
+.gear-icon{display:grid;place-items:center;flex:0 0 43px;height:43px;border:1px solid #49626a;background:#213e48;color:#9bdaca}
+.gear-icon i{width:24px;height:24px}
+.gear[data-gear="weapon"] .gear-icon{color:#f6c97a}
+.gear-info{flex:1}
+.gear h3{margin:0 0 5px;font-size:16px}.gear-level{font:12px Consolas,monospace;color:#b2c5c4;white-space:nowrap}
+.gear p,.shop-help{font-size:12px;margin:0;color:#b6caca;line-height:1.7}
+.gear-action{display:grid;justify-items:end;gap:3px}
+.buy{font-size:13px;font-weight:750;min-height:37px;padding:0 8px;background:#f7ce78;color:#253540;border:1px solid #f8dd9c;border-radius:3px;white-space:nowrap}
+.buy:disabled{opacity:1;background:#263d47;color:#a7b9bb;border-color:#405762;cursor:default}
+.gear-cost{color:#c1b295;font-size:11px}.gear-cost:empty,#shopMessage:empty{display:none}
+.shop-help{padding-top:11px;border-top:1px solid #354f59}
+#shopMessage{font-size:13px;color:var(--mint);margin:10px 0 0}
+@media(max-width:450px){
+  .launch-row{gap:9px}.hangar-button{font-size:13px;gap:6px;padding:0 8px}
+  .hangar-body{padding-inline:12px}.gear{gap:7px}.gear-icon{flex-basis:32px;height:34px}.gear-icon i{width:19px;height:19px}
+  .gear h3{font-size:14px}.gear-level{font-size:10px}.gear p{font-size:11px}.buy{font-size:12px}
+}
+@media(max-height:490px) and (orientation:landscape){
+  .hangar-button{min-height:30px}.result .hangar-button{margin:4px auto 0}
+  .result-card{max-height:100%;overflow-y:auto}
+}

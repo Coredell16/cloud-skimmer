@@ -163,11 +163,45 @@
     pair(deep, 1,35,2,2);
   }
 
+  function makeFlagship(g) {
+    const {shape, both, rect, pair} = painter(g);
+    const hull = '#384456', iron = '#6a7888', silver = '#b8c3c2';
+    const edge = '#ebe0bf', oxide = '#904652', scarlet = '#d4685a';
+    // Two articulated armored pontoons flank the exposed central turbine.
+    both(ink, [4,13, 10,8, 13,7, 18,14, 23,15, 28,8, 32,8, 32,33, 29,39, 24,40, 23,46, 18,48, 14,45, 14,38, 5,42]);
+    both(hull, [6,15, 11,10, 13,10, 17,16, 24,18, 29,11, 30,11, 30,32, 27,37, 22,38, 21,44, 18,46, 16,43, 16,36, 7,39]);
+    both(iron, [8,17, 12,12, 16,18, 23,19, 22,25, 15,29, 8,27]);
+    both(silver, [9,17, 12,12, 15,17, 20,19, 19,21, 14,20]);
+    both(oxide, [24,17, 29,10, 30,10, 30,32, 27,36, 24,36, 23,28]);
+    both(scarlet, [24,17, 29,11, 29,24, 26,29, 24,29]);
+    pair(edge, 27,16,1,4);
+    both(ink, [8,30, 14,27, 21,28, 22,34, 19,39, 14,39, 10,35]);
+    both(iron, [10,30, 14,28, 19,29, 20,33, 18,37, 14,37, 11,34]);
+    pair(hull, 13,30,5,5);
+    pair('#85d6d7', 14,31,3,2);
+    pair(ink, 17,40,4,5);
+    pair(silver, 17,42,4,1);
+    // Crown plates surround a bright hexagonal induction core.
+    shape(ink, [-2,4, 2,4, 6,9, 9,17, 11,25, 10,36, 7,43, 6,51, 2,54, -2,54, -6,51, -7,43, -10,36, -11,25, -9,17, -6,9]);
+    shape(hull, [0,5, 4,10, 7,18, 9,25, 8,36, 5,43, 4,50, 0,52, -4,50, -5,43, -8,36, -9,25, -7,18, -4,10]);
+    both(silver,[1,7, 4,11, 7,19, 6,22, 2,18, 1,14]);
+    both(scarlet,[2,14, 5,17, 6,20, 3,18]);
+    both(iron,[8,34, 7,39, 4,45, 1,43, 1,38]);
+    both(edge,[6,37, 5,40, 3,42, 3,39]);
+    shape(ink, [-5,21, 4,21, 8,25, 8,31, 4,36, -4,36, -8,32, -8,25]);
+    shape(scarlet, [-4,22, 3,22, 7,26, 7,30, 3,34, -3,34, -6,31, -6,26]);
+    shape('#ffb254', [-3,24, 2,24, 5,27, 5,30, 2,32, -2,32, -4,30, -4,27]);
+    rect('#fff4bd', -2,26,4,4);
+    rect(silver,-2,46,4,1);
+    rect(ink,-2,48,4,3);
+  }
+
   const designs = {};
   for (const [name, paint, engines] of [
     ['player', makePlayer, [[-6.5,57], [6.5,57]]],
     ['enemy', makeRaider, [[-5.5,51], [5.5,51]]],
-    ['enemy2', makeHornet, [[-10,50], [10,50]]]
+    ['enemy2', makeHornet, [[-10,50], [10,50]]],
+    ['boss', makeFlagship, [[-19,45], [19,45], [0,51]]]
   ]) {
     const sprite = newCanvas();
     paint(sprite.getContext('2d'));

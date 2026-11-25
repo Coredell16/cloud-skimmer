@@ -38,15 +38,23 @@
       blend(grain(u, v + 1, seed), grain(u + 1, v + 1, seed), a), b);
   }
 
+  const waterTones = [
+    [0x207689,0x4ca7aa,0x60bdab], [0x3a344e,0x856078,0xcb8a67],
+    [0x143247,0x2d6077,0x60bdab], [0x172e47,0x36566e,0x83959b],
+    [0x153d41,0x426d66,0x8abbb0], [0x382e40,0x78525b,0xc58473]
+  ];
+  const currentColors = [
+    ['rgba(172,229,214,.16)','rgba(19,94,115,.24)'], ['#efb59232','#382f513d'],
+    ['#86c8cd28','#10365154'], ['#94b3c528','#122a4c55'],
+    ['#c1dcd148','#183f4e66'], ['#f1b6a834','#38293b66']
+  ];
   // The water is a seamless tile. Long, slightly broken strokes describe
   // currents while much smaller groups of crests catch the light.
   function ocean(stage) {
     const size = 384, img = surface(size, size);
     const ctx = img.getContext('2d'), pixels = ctx.createImageData(size, size);
-    const deep = rgb(stage === 2 ? 0x3a344e : stage === 3 ? 0x143247 : 0x207689);
-    const blue = rgb(stage === 2 ? 0x856078 : stage === 3 ? 0x2d6077 : 0x4ca7aa);
+    const [deep, blue, reflection] = waterTones[stage-1].map(rgb);
     const colors = Array.from({length: 32}, (_, i) => tone(deep, blue, i / 31));
-    const reflection = rgb(stage === 2 ? 0xcb8a67 : 0x60bdab);
     for (let y = 0; y < size; y++) {
       const Y = y * tau / size;
       for (let x = 0; x < size; x++) {
@@ -63,6 +71,11 @@
           const aurora = Math.cos(X * 2 + Y + 1.8 * Math.sin(Y + .65 * Math.sin(X)));
           const ribbon = Math.max(0, aurora) ** 10;
           light = ribbon * (.17 + .08 * Math.sin(20 * Y + 3 * X));
+        } else if (stage === 5) {
+          const ridge = Math.sin(X * 4 + Y * 13 + 1.6 * Math.sin(2 * X + Y));
+          light = Math.max(0, ridge - .82) * (.5 + .38 * Math.cos(6 * X - Y));
+        } else if (stage === 6) {
+          light = Math.max(0, Math.cos(X - 2 * Y + Math.sin(2*X))) ** 9 * (.16 + .07 * Math.sin(27*Y+X));
         }
         const i = (y * size + x) * 4;
         for (let k = 0; k < 3; k++) pixels.data[i+k] = blend(col[k], reflection[k], light);
@@ -74,9 +87,7 @@
     for (let i = 0; i < 405; i++) {
       const cx = Math.floor(r() * size), cy = Math.floor(r() * size);
       const w = Math.floor(2 + Math.pow(r(), 2) * 13);
-      ctx.fillStyle = stage === 2 ? (i % 5 ? '#efb59232' : '#382f513d') :
-        stage === 3 ? (i % 5 ? '#86c8cd28' : '#10365154') :
-        (i % 5 ? 'rgba(172,229,214,.16)' : 'rgba(19,94,115,.24)');
+      ctx.fillStyle = currentColors[stage-1][i % 5 ? 0 : 1];
       for (let j = 0; j < w; j++) {
         if (r() > .09) ctx.fillRect((cx + j) % size, (cy - Math.floor(j / 8) + size) % size, 1, 1);
       }
@@ -301,15 +312,156 @@
     return out;
   }
 
+  // An isometric block with two shaded walls, shared by the pier and station.
+  function block(ctx, x, y, length, depth, height, colors) {
+    const a=[x,y-height], b=[x+length,y+.28*length-height];
+    const c=[b[0]-depth,b[1]+.45*depth], d=[x-depth,a[1]+.45*depth];
+    polygon(ctx,[b,c,[c[0],c[1]+height],[b[0],b[1]+height]],colors[2]);
+    polygon(ctx,[c,d,[d[0],d[1]+height],[c[0],c[1]+height]],colors[1]);
+    polygon(ctx,[a,b,c,d],colors[0]);
+  }
+
+  function harbor(lighthouse) {
+    const out=surface(158,103), g=out.getContext('2d');
+    const stone=['#778893','#4b606f','#35475a'], wood=['#8f7770','#594f57','#493f50'];
+    const x=72,y=54;
+    block(g,x+3,y+4,60,57,3,['#46677a','#3c5c6f','#344f64']);
+    block(g,x,y,60,57,6,stone);
+    for(let lane=8;lane<57;lane+=11){
+      const sx=x-lane, sy=y-6+.45*lane;
+      polygon(g,[[sx,sy],[sx+60,sy+17],[sx+60,sy+18],[sx,sy+1]],'#697b88');
+      for(let i=9;i<59;i+=13){
+        g.fillStyle='#84919b';
+        g.fillRect(Math.round(sx+i),Math.round(sy+.28*i),3,1);
+      }
+    }
+    // Timber landing fingers jut past the masonry quay into the shipping lane.
+    for (const offset of [4,20,36]) {
+      block(g,x+offset-49,y+23+offset*.28,4,16,3,wood);
+      g.fillStyle='#b09a88';g.fillRect(x+offset-62,Math.round(y+27+offset*.28),2,3);
+    }
+    if (lighthouse) {
+      const tx=74, ty=65;
+      polygon(g,[[tx-12,ty],[tx,ty-5],[tx+14,ty],[tx+3,ty+6]],'#465668');
+      polygon(g,[[tx-6,ty],[tx-3,ty-28],[tx+3,ty-28],[tx+7,ty],[tx+2,ty+3]],'#d6c7ad');
+      polygon(g,[[tx+1,ty+2],[tx,ty-27],[tx+3,ty-28],[tx+7,ty],[tx+4,ty+2]],'#9a9292');
+      for (const h of [9,19])
+        polygon(g,[[tx-5,ty-h],[tx+5,ty-h+1],[tx+4,ty-h-4],[tx-4,ty-h-5]],'#92534d');
+      g.fillStyle='#233d50';g.fillRect(tx-6,ty-30,12,3);g.fillRect(tx-4,ty-38,8,8);
+      polygon(g,[[tx-5,ty-35],[tx-55,ty-41],[tx-54,ty-29]],'#eac58735');
+      g.fillStyle='#ffda87';g.fillRect(tx-3,ty-36,6,5);
+      g.fillStyle='#fff3c2';g.fillRect(tx-3,ty-35,2,3);
+      polygon(g,[[tx-7,ty-37],[tx,ty-43],[tx+7,ty-37]],'#b06a55');
+      block(g,93,67,13,9,7,['#82757a','#635660','#424752']);
+      block(g,111,69,6,5,4,['#95867d','#685b63','#505466']);
+      g.fillStyle='#d0ac7c';g.fillRect(91,63,2,2);
+      g.fillStyle='#b5b0a0';g.fillRect(84,61,4,1);
+      g.fillStyle='#394e62';g.fillRect(tx-2,ty-4,2,4);
+    } else {
+      for(const [cx,cy,col] of [[92,62,'#927260'],[75,63,'#5c8182'],[66,68,'#856d75']]){
+        block(g,cx,cy,13,6,5,[col,'#4c5362','#394b59']);
+      }
+      const cx=99,cy=62;
+      block(g,cx,cy,6,5,4,stone);
+      polygon(g,[[cx-2,cy-3],[cx,cy-23],[cx+2,cy-24],[cx+3,cy-2]],'#9b856b');
+      polygon(g,[[cx-16,cy-25],[cx+11,cy-30],[cx+13,cy-28],[cx-17,cy-22]],'#b69a75');
+      g.fillStyle='#485567';g.fillRect(cx-14,cy-23,1,11);
+      g.fillStyle='#c7b48a';g.fillRect(cx-15,cy-13,3,2);
+    }
+    // Warm lights and their short broken reflections belong to the quay.
+    for(const u of [4,24,44]){
+      const bx=x+u-56, by=Math.round(y+u*.28+25);
+      g.fillStyle='#ffe1a5';g.fillRect(bx,by-6,2,2);
+      g.fillStyle='#d69d785c';g.fillRect(bx,by+3,3,1);g.fillRect(bx+2,by+6,2,1);
+    }
+    return out;
+  }
+
+  function buoy() {
+    const out=surface(14,17), g=out.getContext('2d');
+    g.fillStyle='#74919e';g.fillRect(2,13,9,1);
+    polygon(g,[[2,10],[5,8],[9,8],[11,10],[8,12],[5,12]],'#917767');
+    g.fillStyle='#cbb27c';g.fillRect(5,5,3,4);
+    g.fillStyle='#f1ce81';g.fillRect(5,3,3,2);
+    return out;
+  }
+
+  function stormReef(seed, size) {
+    const out=surface(130,90), g=out.getContext('2d'), r=random(seed), cx=64,cy=54;
+    const rx=35*size, ry=13*size;
+    // Broken crests curl around the upwind foot before trailing to leeward.
+    for(let k=0;k<4;k++){
+      for(let i=0;i<90;i++){
+        const a=tau*i/90, x=cx+Math.cos(a)*(rx+3*k), y=cy+Math.sin(a)*(ry+k*2);
+        if(r()<.32 || (k>0 && Math.cos(a)>.6)) continue;
+        g.fillStyle=k%2?'#9ebfb388':'#81a79fbb';
+        g.fillRect(Math.round(x),Math.round(y),2+Math.floor(r()*4),1);
+      }
+    }
+    for(const f of [-.41,.43,.04]){
+      const x=cx+f*rx, y=cy+(.12+f*.32)*ry, w=rx*(.48+r()*.25);
+      const h=(f===.04?33:20+r()*11)*size, tip=x+w*.28;
+      polygon(g,[[x-w,y],[x-w*.7,y-h*.3],[tip-4,y-h],[tip+3,y-h],[x+w,y-2],[x+w*.6,y+4],[x-w*.4,y+6]],'#354e54');
+      polygon(g,[[x-w,y],[x-w*.7,y-h*.3],[tip-4,y-h],[tip+1,y-h],[x-w*.2,y+1]],'#73867f');
+      polygon(g,[[tip+1,y-h],[x+w*.22,y-h*.29],[x+w*.6,y+3],[x-w*.2,y+3]],'#526968');
+      polygon(g,[[x-w*.7,y-h*.3],[tip-4,y-h],[tip-1,y-h],[x-w*.48,y-h*.32]],'#9da798');
+      // Split columns taper at the crest and widen at the waterline.
+      for(let j=1;j<=4;j++){
+        const offset=j*.19, foot=x-w+w*1.63*offset;
+        const ridgeX=blend(tip-3,foot,.31+offset*.32), ridgeY=y-h*(.74-offset*.37);
+        polygon(g,[[ridgeX,ridgeY],[foot,y+2],[foot+1.4,y+2]],'#455c5e');
+        g.fillStyle='#a9b7a7';
+        g.fillRect(Math.round(ridgeX),Math.round(ridgeY+1),1,1);
+      }
+      g.fillStyle='#cdd8c2aa';g.fillRect(Math.round(x-w),Math.round(y+3),Math.round(w*.7),1);
+    }
+    return out;
+  }
+
+  function ringStation(size, docks) {
+    const out=surface(154,100), g=out.getContext('2d'), cx=76,cy=57;
+    const rx=48*size,ry=25*size, n=12;
+    const rim=(i,r,lift)=>[cx+rx*r*Math.cos(i*tau/n),cy+ry*r*Math.sin(i*tau/n)-lift];
+    if(docks) {
+      block(g,cx+28,cy+7,19,5,4,['#917c7f','#5d5364','#493e51']);
+      block(g,cx-25,cy+11,8,24,3,['#88737b','#5a4c60','#463e52']);
+    }
+    // Faceted outer and inner walls leave water visible in the central basin.
+    for(let i=0;i<n;i++){
+      const mid=tau*(i+.5)/n, j=i+1;
+      const r=Math.sin(mid)>0?1:.61;
+      polygon(g,[rim(i,r,0),rim(j,r,0),rim(j,r,7),rim(i,r,7)],i%3?'#56495b':'#705a67');
+    }
+    for(let i=0;i<n;i++){
+      const j=i+1;
+      polygon(g,[rim(i,1,7),rim(j,1,7),rim(j,.61,7),rim(i,.61,7)],i%3?'#a08b87':'#84757f');
+      polygon(g,[rim(i+.09,.90,7),rim(j-.09,.90,7),rim(j-.09,.84,7),rim(i+.09,.84,7)],'#bd7165');
+      polygon(g,[rim(i+.12,.69,7),rim(j-.12,.69,7),rim(j-.12,.65,7),rim(i+.12,.65,7)],'#d5ab94');
+      const [bx,by]=rim(i+.1,.81,7);
+      g.fillStyle='#635c6b';g.fillRect(Math.round(bx),Math.round(by),2,1);
+      if(i%3===0){
+        const [x,y]=rim(i+.45,.81,7);
+        block(g,x-1,y,5,4,5,['#c6b0a1','#705d69','#57495a']);
+        g.fillStyle='#eac39a';g.fillRect(Math.round(x-1),Math.round(y-4),2,1);
+      }
+    }
+    return out;
+  }
+
+  const cloudTones = [
+    [0x84acb6,0xa4bccb,0xb8cbd4,0xcddadb,0xe0e5da,0xedecdc,0xf8f2de,0xfff9e9],
+    [0x8b677a,0xa37582,0xb88b8c,0xcba091,0xe1b39b,0xedd0ab,0xf8ddb4,0xffe9c8],
+    [0x578998,0x749aa9,0x89adbc,0x9dbec7,0xb1ced4,0xc5dad9,0xd9e7dd,0xe8efe3],
+    [0x3c5468,0x4d677b,0x587384,0x668293,0x7891a0,0x899eab,0xa0afba,0xb1bfc2],
+    [0x29484f,0x395755,0x46635f,0x52706d,0x5e7976,0x6e8780,0x81968c,0x96a69b],
+    [0x564a5d,0x6c5465,0x81606a,0x906c73,0xa77e7b,0xbc9286,0xcfa493,0xddbc9d]
+  ];
   // A cloud is modelled as overlapping domes, then lit and quantised together
   // so that it reads as one cloud, with softer internal edges than its outline.
   function cloud(seed, width, height, stage) {
     const c = surface(width, height), ctx = c.getContext('2d'), r = random(seed);
     const img = ctx.createImageData(width, height), d = img.data;
-    const colors = (stage === 2 ?
-      [0x8b677a,0xa37582,0xb88b8c,0xcba091,0xe1b39b,0xedd0ab,0xf8ddb4,0xffe9c8] :
-      stage === 3 ? [0x578998,0x749aa9,0x89adbc,0x9dbec7,0xb1ced4,0xc5dad9,0xd9e7dd,0xe8efe3] :
-      [0x84acb6,0xa4bccb,0xb8cbd4,0xcddadb,0xe0e5da,0xedecdc,0xf8f2de,0xfff9e9]).map(rgb);
+    const colors = cloudTones[stage-1].map(rgb);
     const lobes = [];
     const cy = height * .57;
     // A tapered, irregular eastward tail, with cumulus towers toward the head.
@@ -356,21 +508,26 @@
     return c;
   }
 
+  const coastMakers = [
+    () => [
+        island(43,43,20,12), island(126,35,17,11), island(208,19,10,7),
+        island(97,12,6.5,6), island(63,7,4.2,3), island(237,52,22,14)
+      ], () => [
+        headland(17,50,29,30,2), headland(31,42,29,25,2), headland(135,20,11,12,2),
+        headland(8,11,7,10,2), headland(86,8,4,5,2), headland(61,59,33,30,2)
+      ], () => [
+        headland(310,39,23,15,3), headland(512,31,19,19,3), headland(73,19,10,10,3),
+        headland(101,11,7,6,3), headland(9,6,5,4,3), headland(97,47,23,14,3,true)
+      ],
+    () => [harbor(true),harbor(false),buoy()],
+    () => [stormReef(37,1),stormReef(82,.72),stormReef(19,.41)],
+    () => [ringStation(1,true),ringStation(.67,false),ringStation(.36,false)]
+  ];
   const artCache = new Map();
   function getArt(stage) {
     if (artCache.has(stage)) return artCache.get(stage);
-    const coast = stage === 1 ? [
-        island(43,43,20,12), island(126,35,17,11), island(208,19,10,7),
-        island(97,12,6.5,6), island(63,7,4.2,3), island(237,52,22,14)
-      ] : stage === 2 ? [
-        headland(17,50,29,30,2), headland(31,42,29,25,2), headland(135,20,11,12,2),
-        headland(8,11,7,10,2), headland(86,8,4,5,2), headland(61,59,33,30,2)
-      ] : [
-        headland(310,39,23,15,3), headland(512,31,19,19,3), headland(73,19,10,10,3),
-        headland(101,11,7,6,3), headland(9,6,5,4,3), headland(97,47,23,14,3,true)
-      ];
     const art = {
-      water: ocean(stage), islands: coast,
+      water: ocean(stage), islands: coastMakers[stage-1](),
       clouds: [cloud(56,104,43,stage),cloud(872,154,61,stage),cloud(99,74,33,stage),cloud(14,126,54,stage)],
       gleams: []
     };
@@ -393,6 +550,18 @@
     3: [
       [.81,.18,5,1.08], [.99,.08,1,1], [.90,.33,3,.72], [.71,.31,4,.76],
       [.97,.65,2,.65], [.035,.83,0,1.20], [.18,.96,1,.82], [.19,.76,4,.85], [.25,.84,3,.68]
+    ],
+    4: [
+      [.87,.17,0,1.14], [1.06,.28,1,1.03], [.77,.38,2,.78], [.86,.47,2,.78],
+      [.035,.78,1,1.15], [.12,.98,0,.68], [.15,.62,2,.65], [.21,.71,2,.62]
+    ],
+    5: [
+      [.87,.14,0,1.2], [1,.29,1,.96], [.77,.34,2,.78], [.94,.47,2,.68],
+      [.04,.83,0,1.18], [.15,.93,1,.87], [.19,.79,2,.62], [.004,.51,2,.55]
+    ],
+    6: [
+      [.86,.18,0,1.1], [1.02,.29,1,.77], [.95,.42,2,.62],
+      [.025,.84,0,.82], [.14,.96,1,.72], [.96,.93,1,.76]
     ]
   };
   const cloudRows = [
@@ -401,7 +570,9 @@
   ];
   const sparkleColors = {
     1: ['rgba(157,217,205,.27)','rgba(181,224,212,.52)'],
-    2: ['#e7ab8b48','#ffcf9e98'], 3: ['#76babb4a','#ade5d591']
+    2: ['#e7ab8b48','#ffcf9e98'], 3: ['#76babb4a','#ade5d591'],
+    4: ['#7799ad42','#b2c3c879'], 5: ['#adcdb757','#d2d8bf8a'],
+    6: ['#c28b8f45','#d8afa988']
   };
   let plate, lastW = 0, lastH = 0;
   function draw(ctx, w, h, timeSeconds = 0, cameraX = 0, cameraY = 0, mode = 'menu', stage = 1) {
@@ -427,8 +598,8 @@
       p.fillRect(x,y,g.len,1);
       if (a>.92 && g.len>=4) p.fillRect(x+1,y-1,1,3);
     }
-    function sprite(img,x,y,scale) {
-      const sw = Math.round(img.width*scale), sh = Math.round(img.height*scale);
+    function sprite(img,x,y,scale,stretch=1) {
+      const sw = Math.round(img.width*scale*stretch), sh = Math.round(img.height*scale/stretch);
       p.drawImage(img,Math.round(x-sw/2),Math.round(y-sh/2),sw,sh);
     }
     p.imageSmoothingEnabled=false;
@@ -439,15 +610,19 @@
       sprite(assets.islands[id],rx*W-X*.7,y,scale);
     }
 
+    const stretch = stage === 5 ? 1.66 : stage === 4 ? 1.45 : 1;
+    p.globalAlpha = stage === 4 ? .64 : 1;
     for(const [rx,ry,id,k] of cloudRows) {
       const near = k>.9;
       const scale = (W<325 ? k*.68 : k) * (stage===3 ? .74 : 1);
       let x=rx*W - X*(near?1.65:1.1) + Math.sin(t*.055+rx*2)*3;
+      if (stage === 5) x += Math.sin(t*.18 + ry*7) * (near ? 15 : 8);
       let y=ry*H - Y*(near?1.65:1.1);
       if (play) y=wrap(y+t*(near?17:12)+52,H+104)-52;
       else y+=Math.sin(t*.065+ry)*1.5;
-      sprite(assets.clouds[id],x,y,scale);
+      sprite(assets.clouds[id],x,y,scale,stretch);
     }
+    p.globalAlpha=1;
     ctx.save();
     ctx.imageSmoothingEnabled=false;
     ctx.drawImage(plate,0,0,w,h);

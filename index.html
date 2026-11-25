@@ -6,11 +6,12 @@
   <meta name="theme-color" content="#0e1b25">
   <title>贴云飞行 · 云际街机</title>
   <link rel="icon" href="wing.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="cabinet.css?v=1.1.0">
-  <script defer src="scenery.js?v=1.1.0"></script>
-  <script defer src="sprites.js"></script>
-  <script defer src="flight.js?v=1.1.0"></script>
-  <script defer src="cabinet.js?v=1.1.0"></script>
+  <link rel="stylesheet" href="cabinet.css?v=1.2.0">
+  <script defer src="scenery.js?v=1.2.0"></script>
+  <script defer src="sprites.js?v=1.2.0"></script>
+  <script defer src="hangar.js?v=1.2.0"></script>
+  <script defer src="flight.js?v=1.2.0"></script>
+  <script defer src="cabinet.js?v=1.2.0"></script>
 </head>
 <body>
   <header class="mast"><div class="mast-inner">
@@ -28,9 +29,12 @@
           <button class="route" data-stage="1" data-brief="掠过群岛，穿越弹幕。" aria-pressed="true"><span class="pixel">01</span><strong>珊瑚海岸</strong></button>
           <button class="route" data-stage="2" data-brief="虚线交会时，避开双机俯冲。" aria-pressed="false"><span class="pixel">02</span><strong>日落峡湾</strong></button>
           <button class="route" data-stage="3" data-brief="跟着青色缺口，穿过四排弹幕。" aria-pressed="false"><span class="pixel">03</span><strong>极光前哨</strong></button>
+          <button class="route" data-stage="4" data-brief="灯道亮起前，切入暗区。" aria-pressed="false"><span class="pixel">04</span><strong>雾港灯阵</strong></button>
+          <button class="route" data-stage="5" data-brief="留意风向，迎风修正航线。" aria-pressed="false"><span class="pixel">05</span><strong>风暴航道</strong></button>
+          <button class="route" data-stage="6" data-brief="躲过齐射，瞄准暴露的核心。" data-objective="在 60 秒内击破旗舰。" aria-pressed="false"><span class="pixel">06</span><strong>赤环旗舰</strong></button>
         </div>
         <div class="stage-id" id="activeRoute" hidden><span class="stripes" aria-hidden="true"></span><span class="pixel stage-label" id="stageNumber">STAGE 01</span><span class="bar-line"></span><strong id="stageName">珊瑚海岸</strong></div>
-        <div class="timer"><i data-icon="clock"></i><span class="pixel" id="remaining">01:00</span><button id="pause" hidden aria-label="暂停飞行"><i data-icon="pause"></i></button><button id="leaveFull" hidden aria-label="退出全屏"><i data-icon="full"></i></button></div>
+        <div class="timer"><span id="sortieCash" class="sortie-cash" hidden title="本局已获得金币"><i data-icon="coin"></i><span id="runCoins">+0</span></span><i data-icon="clock"></i><span class="pixel" id="remaining">01:00</span><button id="pause" hidden aria-label="暂停飞行"><i data-icon="pause"></i></button><button id="leaveFull" hidden aria-label="退出全屏"><i data-icon="full"></i></button></div>
       </div>
       <div class="stage" id="stage" data-mode="menu">
         <canvas id="flightCanvas" tabindex="0" aria-label="飞行区域，方向键或 WASD 移动，手机可单指拖动"></canvas>
@@ -39,12 +43,13 @@
         <div class="hero" id="hero">
           <h1><img src="title.png" alt="贴云飞行" width="155" height="41"></h1>
           <div class="game-name pixel"><span aria-hidden="true"></span>CLOUD SKIMMER</div>
-          <p><span id="brief">掠过群岛，穿越弹幕。</span><br>在这条航线上坚持 60 秒。</p>
-          <div class="launch-row"><button class="launch" id="launch"><i data-icon="play"></i>开始飞行</button><kbd class="enter">ENTER</kbd></div>
+          <p><span id="brief">掠过群岛，穿越弹幕。</span><br><span id="objective">在这条航线上坚持 60 秒。</span></p>
+          <div class="launch-row"><button class="launch" id="launch"><i data-icon="play"></i>开始飞行</button><button id="openHangar" class="hangar-button" aria-haspopup="dialog">装备机库 <span class="wallet"><i data-icon="coin"></i><span id="menuBalance">0</span></span></button></div>
         </div>
         <div class="result" id="result" hidden>
           <div class="result-card"><span class="result-mark" aria-hidden="true"><i data-icon="wing"></i></span><h2 id="resultTitle" aria-live="polite"></h2><p id="resultDetail"></p><p id="nextBrief" class="next-brief" hidden></p>
             <button class="launch" id="primary"><i data-icon="play"></i><span></span></button>
+            <button class="hangar-button" id="resultHangar" hidden aria-haspopup="dialog">装备机库 <span class="wallet"><i data-icon="coin"></i><span id="resultBalance">0</span></span></button>
             <button class="text-button" id="back">返回标题画面</button>
           </div>
         </div>
@@ -60,16 +65,26 @@
       <h2 id="guideTitle"><i data-icon="book"></i>飞行手册</h2>
       <div class="guides">
         <div class="guide"><div class="guide-icon"><i data-icon="keyboard"></i></div><div><h3>键盘操控</h3><p><kbd>WASD</kbd> / <kbd>↑↓←→</kbd> 移动，<kbd>P</kbd> 暂停</p></div></div>
-        <div class="guide"><div class="guide-icon"><i data-icon="touch"></i></div><div><h3>触屏操控</h3><p>单指拖动飞机，松手悬停</p></div></div>
+        <div class="guide"><div class="guide-icon"><i data-icon="touch"></i></div><div><h3>触屏操控</h3><p>单指拖动飞机，机炮自动射击</p></div></div>
         <div class="guide"><div class="guide-icon gold"><i data-icon="bolt"></i></div><div><h3>擦弹充能</h3><p>贴近子弹蓄能，满格后击落敌机触发闪电</p></div></div>
       </div>
       <details class="release-notes" id="releaseNotes">
-        <summary>版本更新 <span>v1.1.0</span></summary>
-        <p><time datetime="2026-11-25">2026 年 11 月 25 日</time> · 两条新航线</p>
-        <p>「日落峡湾」加入交叉编队，「极光前哨」加入带缺口的弹幕。起飞前可以任选一关，通关后可以进入下一关。三条航线分别记录最高分。</p>
+        <summary>版本更新 <span>v1.2.0</span></summary>
+        <p><time datetime="2026-11-25">2026 年 11 月 25 日</time> · 装备机库与旗舰决战</p>
+        <p>击落敌机获得金币，回到机库可提升机炮射速和护盾容量。新航线「雾港灯阵」「风暴航道」「赤环旗舰」已开放，六关共用装备。</p>
         <a href="https://github.com/Coredell16/cloud-skimmer/blob/main/CHANGELOG.md" target="_blank" rel="noopener">在 GitHub 查看完整更新记录</a>
       </details>
     </section>
   </main>
+  <dialog id="hangar" aria-labelledby="hangarTitle">
+    <div class="hangar-head"><h2 id="hangarTitle">装备机库</h2><button id="closeHangar" type="button" aria-label="关闭机库" autofocus>×</button></div>
+    <div class="hangar-body">
+      <div class="balance-row"><span>可用金币</span><strong class="wallet"><i data-icon="coin"></i><span id="shopBalance">0</span></strong></div>
+      <div class="gear" data-gear="weapon"><span class="gear-icon"><i data-icon="cannon"></i></span><div class="gear-info"><h3>双联机炮 <small class="gear-level"></small></h3><p></p></div><div class="gear-action"><button class="buy" data-buy="weapon"></button><small class="gear-cost"></small></div></div>
+      <div class="gear" data-gear="shield"><span class="gear-icon"><i data-icon="shield"></i></span><div class="gear-info"><h3>机体护盾 <small class="gear-level"></small></h3><p></p></div><div class="gear-action"><button class="buy" data-buy="shield"></button><small class="gear-cost"></small></div></div>
+      <p class="shop-help">普通机 3 金币，精英机 6 金币，旗舰 30 金币。升级从下次起飞生效，每关都能使用。</p>
+      <p id="shopMessage" role="status" aria-live="polite"></p>
+    </div>
+  </dialog>
 </body>
 </html>

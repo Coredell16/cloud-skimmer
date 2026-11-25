@@ -2,6 +2,8 @@
   "use strict";
   const byId = id => document.getElementById(id);
   const paths = {
+    coin: "M5 1h6v1h2v2h1v8h-1v2h-2v1H5v-1H3v-2H2V4h1V2h2z M5 4v8h1v1h4v-1h1V4h-1V3H6v1z M7 5h2v6H7z",
+    cannon: "M2 1h3v7H2z M11 1h3v7h-3z M1 9h5V7h4v2h5v3h-2v2h-3v2H6v-2H3v-2H1z",
     sound: "M1 6h3l5-4v12l-5-4H1z M11 5h2v2h1v2h-1v2h-2V9h1V7h-1z M13 1h1v2h1v2h1v6h-1v2h-1v2h-1v-3h1V4h-1z",
     muted: "M1 6h3l5-4v12l-5-4H1z M11 5h1v1h1v1h1V6h1V5h1v2h-1v2h1v2h-1v-1h-1V9h-1v1h-1v1h-1V9h1V7h-1z",
     full: "M1 1h5v2H3v3H1z M10 1h5v5h-2V3h-3z M1 10h2v3h3v2H1z M13 10h2v5h-5v-2h3z",
@@ -44,6 +46,7 @@
       byId("stageNumber").textContent = "STAGE " + pad(stage, 2);
       byId("stageName").textContent = routeName(route);
       byId("brief").textContent = route.dataset.brief;
+      byId("objective").textContent = route.dataset.objective || "在这条航线上坚持 60 秒。";
       routes.forEach((button, index) => button.setAttribute("aria-pressed", String(index + 1 === stage)));
       if (location.protocol === "https:" || location.protocol === "http:") {
         const url = new URL(location.href);
@@ -53,6 +56,7 @@
       }
     }
     byId("score").textContent = pad(score, 6);
+    byId("runCoins").textContent = "+" + state.runCoins;
     byId("best").textContent = pad(best, 6);
     const seconds = Math.max(0, Math.ceil(remaining));
     byId("remaining").textContent = pad(Math.floor(seconds / 60), 2) + ":" + pad(seconds % 60, 2);
@@ -74,6 +78,7 @@
     byId("hero").hidden = mode !== "menu";
     byId("routes").hidden = mode !== "menu";
     byId("activeRoute").hidden = mode === "menu";
+    byId("sortieCash").hidden = mode === "menu";
     byId("pause").hidden = mode !== "play";
     const panel = ["paused", "over", "win"].includes(mode);
     byId("result").hidden = !panel;
@@ -82,8 +87,12 @@
     } else if (panel) {
       const paused = mode === "paused";
       const next = mode === "win" && routes[stage];
-      byId("resultTitle").textContent = paused ? "飞行暂停" : mode === "win" ? "顺利返航" : "飞行结束";
-      byId("resultDetail").textContent = paused ? routeName(routes[stage - 1]) + " · 航线已保留" : routeName(routes[stage - 1]) + " · 得分 " + pad(score, 6);
+      let title = mode === "win" ? "顺利返航" : "飞行结束";
+      if (stage === 6 && mode === "win") title = "旗舰已击破";
+      if (stage === 6 && mode === "over" && remaining === 0) title = "旗舰已撤离";
+      byId("resultTitle").textContent = paused ? "飞行暂停" : title;
+      byId("resultDetail").textContent = paused ? routeName(routes[stage - 1]) + " · 航线已保留" : "得分 " + pad(score, 6) + " · 金币 +" + state.runCoins;
+      byId("resultHangar").hidden = paused;
       byId("nextBrief").hidden = !next;
       if (next) byId("nextBrief").textContent = next.dataset.brief;
       byId("primary").querySelector("span").textContent = paused ? "继续飞行" : next ? "下一关 · " + routeName(next) : "重飞本关";
@@ -91,6 +100,58 @@
     }
   }
   byId("launch").onclick = () => window.Flight.start();
+  const hangar = byId("hangar");
+  const gearNames = {weapon: "双联机炮", shield: "机体护盾"};
+  const cannonRates = ["5.6", "6.5", "7.4", "8.3"];
+  const tierCaps = {weapon: 3, shield: 2};
+  let buying = false;
+  function renderHangar() {
+    const equipment = window.Hangar.state();
+    for (const id of ["menuBalance", "resultBalance", "shopBalance"]) byId(id).textContent = equipment.coins;
+    if (!hangar.open) return;
+    for (const gear of hangar.querySelectorAll("[data-gear]")) {
+      const kind = gear.dataset.gear;
+      const level = equipment[kind], price = window.Hangar.cost(kind, level);
+      const next = price === null ? level : level + 1;
+      gear.querySelector(".gear-level").textContent = "Lv." + level + "/" + tierCaps[kind];
+      const stat = kind === "weapon" ? cannonRates : [0, 1, 2];
+      const amount = String(stat[level]) + (level === next ? "" : " → " + stat[next]);
+      gear.querySelector("p").textContent = kind === "weapon" ? "每秒齐射 " + amount + " 轮" : "每关抵挡 " + amount + " 次伤害";
+      const button = gear.querySelector("button");
+      button.disabled = buying || price === null || price > equipment.coins;
+      button.textContent = price === null ? "已满级" : "升级 · " + price + " 金币";
+      button.setAttribute("aria-label", gearNames[kind] + "，" + button.textContent);
+      gear.querySelector(".gear-cost").textContent = price !== null && equipment.coins < price ? "还差 " + (price - equipment.coins) + " 金币" : "";
+    }
+  }
+  function openHangar() {
+    byId("shopMessage").textContent = "";
+    hangar.showModal();
+    renderHangar();
+    window.Hangar.refresh().catch(() => {});
+  }
+  byId("openHangar").onclick = openHangar;
+  byId("resultHangar").onclick = openHangar;
+  byId("closeHangar").onclick = () => hangar.close();
+  for (const button of hangar.querySelectorAll("[data-buy]")) {
+    button.onclick = async () => {
+      if (buying) return;
+      buying = true;
+      renderHangar();
+      const kind = button.dataset.buy;
+      try {
+        const bought = await window.Hangar.buy(kind);
+        byId("shopMessage").textContent = bought ? gearNames[kind] + "已升至 Lv." + window.Hangar.state()[kind] + "，下次起飞生效。" : "请查看当前余额和装备等级。";
+      } catch {
+        byId("shopMessage").textContent = "购买未完成，请重试。";
+      } finally {
+        buying = false;
+        renderHangar();
+      }
+    };
+  }
+  window.addEventListener("hangarchange", renderHangar);
+  renderHangar();
   routes.forEach(route => {
     route.onclick = () => window.Flight.selectStage(Number(route.dataset.stage));
   });
@@ -113,6 +174,7 @@
     if (event.currentTarget.open && currentMode === "play") window.Flight.pause();
   });
   document.addEventListener("keydown", event => {
+    if (hangar.open) return;
     if (event.key === "Escape" && document.documentElement.classList.contains("theater") && !document.fullscreenElement) setTheater(false);
     if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
     const onSelectedRoute = event.key === "Enter" && event.target.closest?.('.route[aria-pressed="true"]');
